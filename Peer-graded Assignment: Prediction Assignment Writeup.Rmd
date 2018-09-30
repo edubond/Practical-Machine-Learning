@@ -1,0 +1,116 @@
+---
+title: "Peer-graded Assignment: Prediction Assignment Writeup"
+output: html_document
+---
+
+#1. Introduction
+
+This is the final assignment for the Practical Machine Learning Course, part of the John Hopkins Data Science Specialization.
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). We want to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+
+Before starting I would like to thank "http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har" as they have been very generous in allowing their data to be used for this kind of assignment.
+
+#2. Data loading and cleaning
+
+First, we load the necessary libraries. Then we download the data. The data are split into training (**datatrain**) and testing (**datatest**) data.
+
+```{r}
+
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(rattle)
+
+datatrain <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+datatest <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+```
+
+We have to clean the datatrain data: eliminate the near zero variance features, remove the columns with missing values and the first 6 features because are useless for our purposes.
+
+```{r}
+
+nzv <- nearZeroVar(datatrain)
+datatrain2 <- (datatrain[,-nzv])
+datatrain3 <- (datatrain2[,colSums(is.na(datatrain2))==0])
+datatrain4 <- datatrain3[,-(1:6)]
+names(datatrain4)
+
+# nzv2 <- nearZeroVar(datatest)
+# datatest2 <- (datatest[,-nzv])
+# datatest3 <- (datatest2[,colSums(is.na(datatest2))==0])
+# datatest4 <- datatest3[,-(1:6)]
+# names(datatest4)
+
+```
+
+#3. Prediction models
+
+Now we can split the **datatrain4** in two. The training data will be 0.75% and testing data will be 25% of datatrain4. We'll use testing data for the validations.
+
+```{r}
+
+set.seed(12345)
+inTrain <- createDataPartition(datatrain4$classe, p=0.75, list=FALSE)
+
+training <- datatrain4[inTrain,]
+dim(training)
+head(training)
+
+testing <- datatrain4[-inTrain,]
+dim(testing)
+head(testing)
+
+```
+
+We will use two methods to model the training data and to predict with the testing data. The fist one will be the **random forests**. A confusion matrix is shown to better visualize the accuracy of the model.
+
+```{r}
+
+set.seed(11111)
+randforest <- train(classe ~ ., training, method = "rf", trControl = trainControl(method = "cv"))
+randforest$finalModel
+
+```
+
+```{r}
+
+predictrandforest <- predict(randforest, testing)
+confmatrandforest <- confusionMatrix(predictrandforest, testing$classe)
+confmatrandforest
+
+```
+
+The second will be the **decision trees**. A confusion matrix is shown to better visualize the accuracy of the model.
+
+```{r}
+
+set.seed(22222)
+decisiontree <- rpart(classe ~ ., training, method = "class")
+decisiontree
+fancyRpartPlot(decisiontree)
+
+```
+
+```{r}
+
+predictdectree <- predict(decisiontree, testing, type = "class")
+decisiontreecmatrix <- confusionMatrix(predictdectree, testing$classe)
+decisiontreecmatrix
+
+```
+
+#4. Conclusions
+
+So, as shown before the model with the best accuracy is the random forest (**Accuracy : 0.9931**). Now we can apply it on the **datatest** data we downloaded at the beginning of this project.
+
+```{r}
+
+predicttesting <- predict(randforest, datatest)
+predicttesting
+
+```
+
